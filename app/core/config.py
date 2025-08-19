@@ -38,6 +38,18 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "your-google-client-secret")
     GOOGLE_REDIRECT_URL : str = os.getenv("GOOGLE_REDIRECT_URL", "http://localhost:8000/api/v1/auth/callback/google")
 
+    # Firebase Settings
+    FIREBASE_TYPE: str = os.getenv("FIREBASE_TYPE", "service_account")
+    FIREBASE_PROJECT_ID: str = os.getenv("FIREBASE_PROJECT_ID", "your-project-id")
+    FIREBASE_PRIVATE_KEY_ID: str = os.getenv("FIREBASE_PRIVATE_KEY_ID", "your-private-key-id")
+    FIREBASE_PRIVATE_KEY: str = os.getenv("FIREBASE_PRIVATE_KEY", "your-private-key").replace('\\n', '\n')
+    FIREBASE_CLIENT_EMAIL: str = os.getenv("FIREBASE_CLIENT_EMAIL", "your-client-email")
+    FIREBASE_CLIENT_ID: str = os.getenv("FIREBASE_CLIENT_ID", "your-client-id")
+    FIREBASE_AUTH_URI: str = os.getenv("FIREBASE_AUTH_URI", "https://accounts.google.com/o/oauth2/auth")
+    FIREBASE_TOKEN_URI: str = os.getenv("FIREBASE_TOKEN_URI", "https://oauth2.googleapis.com/token")
+    FIREBASE_AUTH_PROVIDER_X509_CERT_URL: str = os.getenv("FIREBASE_AUTH_PROVIDER_X509_CERT_URL", "https://www.googleapis.com/oauth2/v1/certs")
+    FIREBASE_CLIENT_X509_CERT_URL: str = os.getenv("FIREBASE_CLIENT_X509_CERT_URL", "your-client-cert-url")
+    FIREBASE_UNIVERSE_DOMAIN: str = os.getenv("FIREBASE_UNIVERSE_DOMAIN", "googleapis.com")
 
     class Config:
         env_file = ".env"  # Load from .env file
