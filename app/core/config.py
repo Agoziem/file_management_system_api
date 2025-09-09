@@ -26,6 +26,7 @@ class Settings(BaseSettings):
 
     # Email Settings
     BREVO_API_KEY: str = os.getenv("BREVO_API_KEY", "your-brevo-api-key")
+    SENDER_NAME: str = os.getenv("SENDER_NAME", "File Management System")
 
     # AWS S3 Settings
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")

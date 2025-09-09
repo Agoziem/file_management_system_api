@@ -100,3 +100,6 @@ class TwoFactorConfirmationOut(TwoFactorConfirmationBase):
     @field_serializer("id")
     def serialize_uuid(self, value: uuid.UUID) -> str:
         return str(value)
+    
+class TokenVerification(BaseModel):
+    token: str

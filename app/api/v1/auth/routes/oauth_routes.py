@@ -9,7 +9,11 @@ from app.api.v1.auth.services.token_service import TokenService
 from app.core.database import async_get_db
 from app.core.redis import add_oauth_code_to_blocklist, oauth_code_in_blocklist
 from ..schemas.schemas import (
-    GoogleUserCreateModel
+    GoogleUserCreateModel,
+    TwoFactorResponse,
+    LoginSuccessResponse,
+    LoginResponse,
+    UserInfo,
 )
 from ..services.service import UserService
 from ..utils import (
@@ -105,7 +109,7 @@ async def auth_via_google(
 # ----------------------------------------------
 # create access and refresh tokens
 # ----------------------------------------------
-@oauth_router.get("/oauth_token/{code}")
+@oauth_router.get("/oauth_token/{code}", response_model=LoginResponse)
 async def create_oauth_token(
     code: str,
     background_tasks: BackgroundTasks,
@@ -140,28 +144,33 @@ async def create_oauth_token(
         )
 
         # Prepare email content
-        recipients = [
-            EmailRecipient(
-                email=two_factor_token.email, name=two_factor_token.email.split('@')[0]
-            )
-        ]
-        content = EmailRawHTMLContent(
-            subject="2FA Code",
-            html_content=html,
-            sender_name="Mimipoint",
-        )
-        background_tasks.add_task(send_html_email, recipients, content)
+        # recipients = [
+        #     EmailRecipient(
+        #         email=two_factor_token.email, name=two_factor_token.email.split('@')[0]
+        #     )
+        # ]
+        # content = EmailRawHTMLContent(
+        #     subject="2FA Code",
+        #     html_content=html,
+        #     sender_name=settings.SENDER_NAME,
+        # )
+        # background_tasks.add_task(send_html_email, recipients, content)
+        print("2FA code (for testing purposes):", two_factor_token.token)
 
-        return {
-                "message": "2FA code sent to your email",
-                "two_factor_required": True,
-                "user": {"email": user.email, "uid": str(user.id)},
-            }
+        return TwoFactorResponse(
+            message="2FA code sent to your email",
+            two_factor_required=True,
+            user={"email": user.email, "uid": str(user.id)}
+        )
 
     access_token, refresh_token = create_auth_tokens(user)
-    return {
-            "message": "Login successful",
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "user": {"email": user.email, "id": str(user.id)},
-        }
+    return LoginSuccessResponse(
+        message="Login successful",
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user=UserInfo(
+            id=user.id,
+            email=user.email,
+            profile_completed=user.profile_completed
+        )
+    )

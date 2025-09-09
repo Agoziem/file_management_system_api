@@ -2,7 +2,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, status, Query
 from fastapi.exceptions import HTTPException
-from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import async_get_db
 
@@ -16,6 +15,9 @@ from ..schemas.schemas import (
     UserModel,
     UserResponseModel,
     UserUpdateModel,
+    BaseResponse,
+    UserUpdateResponse,
+    UserRoleChangeResponse,
 )
 from ..services.service import ActivityService, UserService
 from typing import List
@@ -58,7 +60,7 @@ async def get_current_user(
 # Update user information
 # --------------------------------------------------------------------
 
-@user_router.put("/update-user")
+@user_router.put("/update-user", response_model=UserUpdateResponse)
 async def update_user(
     user_data: UserUpdateModel,
     user: UserModel = Depends(get_current_user),
@@ -75,11 +77,9 @@ async def update_user(
 
     updated_user = await user_service.update_user(user, user_data.model_dump(), session)
 
-    return JSONResponse(
-        content={"message": "User information updated successfully",
-                 "user": UserUpdateModel.model_validate(updated_user).model_dump()
-                 },
-        status_code=status.HTTP_200_OK
+    return UserUpdateResponse(
+        message="User information updated successfully",
+        user=UserUpdateModel.model_validate(updated_user)
     )
 
 # --------------------------------------------------------------------
@@ -87,7 +87,7 @@ async def update_user(
 # --------------------------------------------------------------------
 
 
-@user_router.delete("/delete_user/{user_id}")
+@user_router.delete("/delete_user/{user_id}", response_model=BaseResponse)
 async def delete_user(
         user_id: UUID,
         _: UserModel = Depends(get_current_user),
@@ -96,7 +96,7 @@ async def delete_user(
     deleted = await user_service.delete_user(user_id, session)
 
     if deleted:
-        return JSONResponse(content={"message": "User deleted successfully"}, status_code=status.HTTP_200_OK)
+        return BaseResponse(message="User deleted successfully")
 
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                         detail="User not found")
@@ -106,7 +106,7 @@ async def delete_user(
 # --------------------------------------------------------------------
 
 
-@user_router.post("/change-role")
+@user_router.post("/change-role", response_model=UserRoleChangeResponse)
 async def change_user_role(
     details: ChangeRoleModel,
     # _: UserModel = Depends(admin_checker),
@@ -123,11 +123,9 @@ async def change_user_role(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found."
         )
-    return JSONResponse(
-        content={"message": "User role updated successfully",
-                 "user": UserUpdateModel.model_validate(update_user).model_dump()
-                 },
-        status_code=status.HTTP_200_OK
+    return UserRoleChangeResponse(
+        message="User role updated successfully",
+        user=UserUpdateModel.model_validate(update_user)
     )
 
 # -----------------------------------------------------------------------

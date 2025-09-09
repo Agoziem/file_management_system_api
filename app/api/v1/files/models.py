@@ -57,4 +57,4 @@ class Storage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relationships
-    user: Mapped["User"] = relationship("User", back_populates="storage",uselist=False, cascade="all, delete-orphan")
+    user: Mapped["User"] = relationship("User", back_populates="storage")

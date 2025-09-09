@@ -21,7 +21,7 @@ import uuid
 from app.core.database import Base
 if TYPE_CHECKING:
     from app.api.v1.files.models import File,Storage  # Avoid circular import
-    from app.api.v1.notifications.models import Notification  # Avoid circular import
+    from app.api.v1.notifications.models import Notification, NotificationRecipient  # Avoid circular import
 
 
 class Role(str, Enum):
@@ -58,6 +58,7 @@ class User(Base):
     is_oauth: Mapped[bool] = mapped_column(default=False)
     login_provider: Mapped[Optional[str]] = mapped_column(default="email")
     profile_completed: Mapped[bool] = mapped_column(default=False)
+    fcmtoken: Mapped[Optional[str]] = mapped_column(String, nullable=True)  
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relationships
@@ -66,12 +67,17 @@ class User(Base):
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
     sent_notifications : Mapped[List["Notification"]] = relationship("Notification", back_populates="sender", cascade="all, delete-orphan")   
-    notifications_received : Mapped[List["Notification"]] = relationship("Notification", secondary="notification_recipients", back_populates="recipients", passive_deletes=True)
+    notification_associations: Mapped[List["NotificationRecipient"]] = relationship("NotificationRecipient", back_populates="user", cascade="all, delete-orphan")
     files: Mapped[List["File"]] = relationship(back_populates="user", cascade="all, delete-orphan")
     storage: Mapped[Optional["Storage"]] = relationship("Storage", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<User {self.first_name} {self.last_name}>"
+    
+    @property
+    def received_notifications(self):
+        """Get all notifications received by this user"""
+        return [assoc.notification for assoc in self.notification_associations]
 
 
 class VerificationToken(Base):

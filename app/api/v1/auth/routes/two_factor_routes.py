@@ -15,7 +15,9 @@ from ..dependencies import (
 from ..schemas.schemas import (
     TokenRequestModel,
     UserModel,
-
+    BaseResponse,
+    LoginSuccessResponse,
+    UserInfo,
 )
 from ..services.service import UserService
 from ..utils import (
@@ -34,7 +36,7 @@ admin_checker = RoleChecker(["admin", "super_admin"])
 # --------------------------------------------------------------------
 # Enable 2FA for user
 # --------------------------------------------------------------------
-@twoFA_router.get("/enable-2FA")
+@twoFA_router.get("/enable-2FA", response_model=BaseResponse)
 async def enable_2fa(
     user: UserModel = Depends(get_current_user),
     session: AsyncSession = Depends(async_get_db)
@@ -50,16 +52,14 @@ async def enable_2fa(
             detail="Error enabling 2FA", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
     await user_service.update_user(user, {"two_factor_enabled": True}, session)
-    return {
-        "message": "2FA enabled successfully",
-    }
+    return BaseResponse(message="2FA enabled successfully")
 
 # --------------------------------------------------------------------
 # Generate 2FA token
 # --------------------------------------------------------------------
 
 
-@twoFA_router.get("/verify-2FA-code/{token}", status_code=status.HTTP_200_OK)
+@twoFA_router.get("/verify-2FA-code/{token}", status_code=status.HTTP_200_OK, response_model=LoginSuccessResponse)
 async def verify_2fa_code(
     token: str,
     session: AsyncSession = Depends(async_get_db)
@@ -81,18 +81,22 @@ async def verify_2fa_code(
 
     access_token, refresh_token = create_auth_tokens(user)
 
-    return {
-        "message": "Login successful",
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "user": {"email": user.email, "id": str(user.id)},
-    }
+    return LoginSuccessResponse(
+        message="Login successful",
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user=UserInfo(
+            id=user.id,
+            email=user.email,
+            profile_completed=user.profile_completed
+        )
+    )
 # --------------------------------------------------------------------
 # Resend 2FA code
 # --------------------------------------------------------------------
 
 
-@twoFA_router.post("/resend-2FA-code")
+@twoFA_router.post("/resend-2FA-code", response_model=BaseResponse)
 async def resend_2fa_code(
     email_data: TokenRequestModel,
     background_tasks: BackgroundTasks,
@@ -112,26 +116,25 @@ async def resend_2fa_code(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
     # Prepare email content
-    recipients = [EmailRecipient(
-        email=token_obj.email, name=token_obj.email.split('@')[0])]
-    content = EmailRawHTMLContent(
-        subject="2FA Code",
-        html_content=templates.get_template("auth/2fa_code.html").render(
-                token=token_obj.token,
-        ),
-        sender_name="Mimipoint",
-    )
-    background_tasks.add_task(send_html_email, recipients, content)
-    return {
-        "message": "2FA code resent to your email",
-    }
+    # recipients = [EmailRecipient(
+    #     email=token_obj.email, name=token_obj.email.split('@')[0])]
+    # content = EmailRawHTMLContent(
+    #     subject="2FA Code",
+    #     html_content=templates.get_template("auth/2fa_code.html").render(
+    #             token=token_obj.token,
+    #     ),
+    #     sender_name=settings.SENDER_NAME,
+    # )
+    # background_tasks.add_task(send_html_email, recipients, content)
+    print("2FA code (for testing purposes):", token_obj.token)
+    return BaseResponse(message="2FA code resent to your email")
 
 # --------------------------------------------------------------------
 # Disable 2FA for user
 # --------------------------------------------------------------------
 
 
-@twoFA_router.get("/disable-2FA")
+@twoFA_router.get("/disable-2FA", response_model=BaseResponse)
 async def disable_2fa(
     user: UserModel = Depends(get_current_user),
     session: AsyncSession = Depends(async_get_db)
@@ -154,4 +157,4 @@ async def disable_2fa(
         await session.commit()
         await session.refresh(token_obj)
 
-    return {"message": "2FA disabled successfully"}
+    return BaseResponse(message="2FA disabled successfully")

@@ -1,8 +1,8 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, status, BackgroundTasks
 from fastapi.exceptions import HTTPException
-from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.v1.auth.schemas.token_schemas import TokenVerification
 from app.api.v1.auth.services.token_service import TokenService
 from app.core.database import async_get_db
 from app.core.mail import EmailRawHTMLContent, EmailRecipient, send_html_email
@@ -24,6 +24,17 @@ from ..schemas.schemas import (
     UserModel,
     EmailModel,
     PasswordResetConfirmModel,
+    # Response schemas
+    BaseResponse,
+    VerificationResponse,
+    TwoFactorResponse,
+    LoginSuccessResponse,
+    LoginResponse,
+    TokenResponse,
+    CreateUserResponse,
+    LogoutResponse,
+    PasswordResetResponse,
+    UserInfo,
 )
 from ..services.service import UserService
 from ..utils import (
@@ -52,7 +63,7 @@ admin_checker = RoleChecker(["admin", "super_admin"])
 REFRESH_TOKEN_EXPIRY = settings.REFRESH_TOKEN_EXPIRY
 
 
-@auth_router.post("/send_mail")
+@auth_router.post("/send_mail", response_model=BaseResponse)
 async def send_mail(emails: EmailModel,
                     data: BulkEmailData,
                     background_tasks: BackgroundTasks):
@@ -65,18 +76,18 @@ async def send_mail(emails: EmailModel,
     content = EmailRawHTMLContent(
         subject=data.subject,
         html_content=data.html_content,
-        sender_name="Mimipoint",
+        sender_name=settings.SENDER_NAME,
     )
     background_tasks.add_task(send_html_email, recipients, content)
 
-    return {"message": "Email sent successfully"}
+    return BaseResponse(message="Email sent successfully")
 
 
 # -------------------------------------------------------------
 # Sign up Route
 # -------------------------------------------------------------
 
-@auth_router.post("/signup", status_code=status.HTTP_201_CREATED)
+@auth_router.post("/signup", status_code=status.HTTP_201_CREATED, response_model=CreateUserResponse)
 async def create_user_Account(
     user_data: UserCreateModel,
     background_tasks: BackgroundTasks,
@@ -101,26 +112,24 @@ async def create_user_Account(
     )
 
     # Prepare email content
-    recipients = [EmailRecipient(
-        email=token_data.email,
-        name=token_data.email.split('@')[0])
-        ]
-    content = EmailRawHTMLContent(
-        subject="Verify Your email",
-        html_content=templates.get_template("auth/email_verfication.html").render(
-            token=token_data.token,
-            user=new_user,
-        ),
-        sender_name="Mimipoint",
-    )
-    background_tasks.add_task(send_html_email, recipients, content)
+    # recipients = [EmailRecipient(
+    #     email=token_data.email,
+    #     name=token_data.email.split('@')[0])
+    #     ]
+    # content = EmailRawHTMLContent(
+    #     subject="Verify Your email",
+    #     html_content=templates.get_template("auth/email_verfication.html").render(
+    #         token=token_data.token,
+    #         user=new_user,
+    #     ),
+    #     sender_name=settings.SENDER_NAME,
+    # )
+    # background_tasks.add_task(send_html_email, recipients, content)
+    print(f"Verification token: {token_data.token}")
 
-    return JSONResponse(
-        content={
-            "message": "Account Created! Check email to verify your account",
-            "user": UserModel.model_validate(new_user).model_dump(),
-        },
-        status_code=status.HTTP_201_CREATED
+    return CreateUserResponse(
+        message="Account Created! Check email to verify your account",
+        user=UserModel.model_validate(new_user)
     )
 
 # --------------------------------------------------------
@@ -128,7 +137,7 @@ async def create_user_Account(
 # --------------------------------------------------------
 
 
-@auth_router.post("/resend-verification", status_code=status.HTTP_200_OK)
+@auth_router.post("/resend-verification", status_code=status.HTTP_200_OK, response_model=BaseResponse)
 async def resend_verification_email(
     email_data: TokenRequestModel,
     background_tasks: BackgroundTasks,
@@ -151,31 +160,27 @@ async def resend_verification_email(
         raise raise_user_not_found_exception()
 
     # Prepare email content
-    recipients = [EmailRecipient(
-        email=token_data.email,
-        name=user_data.first_name or token_data.email.split('@')[0]
-        )]
-    content = EmailRawHTMLContent(
-        subject="Verify Your email",
-        html_content=templates.get_template("auth/email_verfication.html").render(
-            token=token_data.token,
-            user=user_data,
-        ),
-        sender_name="Mimipoint",
-    )
-    background_tasks.add_task(send_html_email, recipients, content)
-    return JSONResponse(
-        content={
-            "message": "Verification email sent successfully",
-        },
-        status_code=status.HTTP_200_OK
-    )
+    # recipients = [EmailRecipient(
+    #     email=token_data.email,
+    #     name=user_data.first_name or token_data.email.split('@')[0]
+    #     )]
+    # content = EmailRawHTMLContent(
+    #     subject="Verify Your email",
+    #     html_content=templates.get_template("auth/email_verfication.html").render(
+    #         token=token_data.token,
+    #         user=user_data,
+    #     ),
+    #     sender_name=settings.SENDER_NAME,
+    # )
+    # background_tasks.add_task(send_html_email, recipients, content)
+    print(f"Verification token: {token_data.token}")
+    return BaseResponse(message="Verification email sent successfully")
 
 
 # --------------------------------------------------------
 # Login Route
 # --------------------------------------------------------
-@auth_router.post("/login")
+@auth_router.post("/login", response_model=LoginResponse)
 async def login_users(
     login_data: UserLoginModel,
     background_tasks: BackgroundTasks,
@@ -199,26 +204,24 @@ async def login_users(
             )
 
             # Prepare email content
-            recipients = [EmailRecipient(
-                email=token_data.email,
-                name=user.first_name or token_data.email.split('@')[0]
-                                                                    )]
-            content = EmailRawHTMLContent(
-                subject="Verify Your email",
-                html_content=templates.get_template("auth/email_verfication.html").render(
-                    token=token_data.token,
-                    user=user,
-                ),
-                sender_name="Mimipoint",
-            )
-            background_tasks.add_task(send_html_email, recipients, content)
+            # recipients = [EmailRecipient(
+            #     email=token_data.email,
+            #     name=user.first_name or token_data.email.split('@')[0]
+            #                                                         )]
+            # content = EmailRawHTMLContent(
+            #     subject="Verify Your email",
+            #     html_content=templates.get_template("auth/email_verfication.html").render(
+            #         token=token_data.token,
+            #         user=user,
+            #     ),
+            #     sender_name="Mimipoint",
+            # )
+            # background_tasks.add_task(send_html_email, recipients, content)
+            print(f"Verification token: {token_data.token}")
 
-            return JSONResponse(
-                content={
-                    "message": "Verification email resent successfully",
-                    "verification_needed": True,
-                },
-                status_code=status.HTTP_200_OK
+            return VerificationResponse(
+                message="Verification email resent successfully",
+                verification_needed=True
             )
 
         # Check if user is 2FA enabled
@@ -241,25 +244,23 @@ async def login_users(
             )
             background_tasks.add_task(send_html_email, recipients, content)
 
-            return JSONResponse(
-                content={
-                    "message": "2FA code sent to your email",
-                    "two_factor_required": True,
-                    "user": {"email": user.email, "uid": str(user.id)},
-                },
-                status_code=status.HTTP_202_ACCEPTED
+            return TwoFactorResponse(
+                message="2FA code sent to your email",
+                two_factor_required=True,
+                user={"email": user.email, "uid": str(user.id)}
             )
 
         access_token, refresh_token = create_auth_tokens(user)
 
-        return JSONResponse(
-            content={
-                "message": "Login successful",
-                "access_token": access_token,
-                "refresh_token": refresh_token,
-                "user": {"email": user.email, "id": str(user.id)},
-            },
-            status_code=status.HTTP_200_OK
+        return LoginSuccessResponse(
+            message="Login successful",
+            access_token=access_token,
+            refresh_token=refresh_token,
+            user=UserInfo(
+                id=user.id,
+                email=user.email,
+                profile_completed=user.profile_completed
+            )
         )
 
     raise raise_invalid_credentials_exception()
@@ -269,14 +270,14 @@ async def login_users(
 # ------------------------------------------------------
 
 
-@auth_router.get("/verify/{token}")
-async def verify_user_account(token: str, session: AsyncSession = Depends(async_get_db)):
+@auth_router.post("/verify-account", response_model=LoginSuccessResponse)
+async def verify_user_account(data: TokenVerification, session: AsyncSession = Depends(async_get_db)):
     """
     Verify user account using token
     params:
         token: str
     """
-    token_data = await token_service.get_verification_token_by_token(token, session)
+    token_data = await token_service.get_verification_token_by_token(data.token, session)
     if not token_data:
         raise raise_invalid_token_exception()
     user_email = token_data.email
@@ -290,19 +291,20 @@ async def verify_user_account(token: str, session: AsyncSession = Depends(async_
 
         access_token, refresh_token = create_auth_tokens(user)
 
-        return JSONResponse(
-            content={
-                "message": "Account verified successfully",
-                "access_token": access_token,
-                "refresh_token": refresh_token,
-                "user": {"email": user.email, "id": str(user.id)},
-            },
-            status_code=status.HTTP_200_OK
+        return LoginSuccessResponse(
+            message="Account verified successfully",
+            access_token=access_token,
+            refresh_token=refresh_token,
+            user=UserInfo(
+                id=user.id,
+                email=user.email,
+                profile_completed=user.profile_completed
+            )
         )
 
-    return JSONResponse(
-        content={"message": "Error occured during verification"},
+    raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Error occured during verification"
     )
 
 # -----------------------------------------------------------
@@ -310,14 +312,14 @@ async def verify_user_account(token: str, session: AsyncSession = Depends(async_
 # -----------------------------------------------------------
 
 
-@auth_router.get("/refresh_token")
+@auth_router.get("/refresh_token", response_model=TokenResponse)
 async def get_new_access_token(token_details: dict = Depends(RefreshTokenBearer())):
     expiry_timestamp = token_details["exp"]
 
     if datetime.fromtimestamp(expiry_timestamp) > datetime.now():
         new_access_token = create_access_token(user_data=token_details["user"])
 
-        return JSONResponse(content={"access_token": new_access_token})
+        return TokenResponse(access_token=new_access_token)
 
     raise raise_invalid_token_exception()
 
@@ -326,7 +328,7 @@ async def get_new_access_token(token_details: dict = Depends(RefreshTokenBearer(
 # ------------------------------------------------
 
 
-@auth_router.get("/logout")
+@auth_router.get("/logout", response_model=LogoutResponse)
 async def revoke_token(token_details: dict = Depends(AccessTokenBearer())):
     """
     Revoke the access token and refresh token
@@ -335,15 +337,13 @@ async def revoke_token(token_details: dict = Depends(AccessTokenBearer())):
     """
     jti = token_details["jti"]
     await add_jti_to_blocklist(jti)
-    return JSONResponse(
-        content={"message": "Logged Out Successfully"}, status_code=status.HTTP_200_OK
-    )
+    return LogoutResponse(message="Logged Out Successfully")
 
 
 # ------------------------------------------------
 # Password Reset Request Route
 # ------------------------------------------------
-@auth_router.post("/password-reset-request")
+@auth_router.post("/password-reset-request", response_model=BaseResponse)
 async def password_reset_request(
     email_data: TokenRequestModel,
     background_tasks: BackgroundTasks,
@@ -359,24 +359,22 @@ async def password_reset_request(
     link = f"{settings.DOMAIN}/reset-password?token={token_data.token}"
     
     # Prepare email content
-    recipients = [EmailRecipient(
-        email=token_data.email,
-        name=token_data.email.split('@')[0]
-                                        )]
-    content = EmailRawHTMLContent(
-        subject="Reset Your Password",
-        html_content=templates.get_template("auth/password_reset.html").render(
-            reset_url=link,
-        ),
-        sender_name="Mimipoint",
-    )
-    background_tasks.add_task(send_html_email, recipients, content)
+    # recipients = [EmailRecipient(
+    #     email=token_data.email,
+    #     name=token_data.email.split('@')[0]
+    #                                     )]
+    # content = EmailRawHTMLContent(
+    #     subject="Reset Your Password",
+    #     html_content=templates.get_template("auth/password_reset.html").render(
+    #         reset_url=link,
+    #     ),
+    #     sender_name=settings.SENDER_NAME,
+    # )
+    # background_tasks.add_task(send_html_email, recipients, content)
+    print(f"Password reset link: {link}")
 
-    return JSONResponse(
-        content={
-            "message": "Please check your email for instructions to reset your password",
-        },
-        status_code=status.HTTP_200_OK,
+    return BaseResponse(
+        message="Please check your email for instructions to reset your password"
     )
 
 # ------------------------------------------------
@@ -384,7 +382,7 @@ async def password_reset_request(
 # ------------------------------------------------
 
 
-@auth_router.post("/password-reset-confirm/{token}")
+@auth_router.post("/password-reset-confirm/{token}", response_model=PasswordResetResponse)
 async def reset_account_password(
     token: str,
     passwords: PasswordResetConfirmModel,
@@ -418,14 +416,11 @@ async def reset_account_password(
         passwd_hash = generate_passwd_hash(new_password)
         await user_service.update_user(user, {"password_hash": passwd_hash}, session)
 
-        return JSONResponse(
-            content={"message": "Password reset Successfully"},
-            status_code=status.HTTP_200_OK,
-        )
+        return PasswordResetResponse(message="Password reset Successfully")
 
-    return JSONResponse(
-        content={"message": "Error occured during password reset."},
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="Error occured during password reset."
     )
 
 # ------------------------------------------------
@@ -433,7 +428,7 @@ async def reset_account_password(
 # ------------------------------------------------
 
 
-@auth_router.post("/password-reset", status_code=status.HTTP_200_OK)
+@auth_router.post("/password-reset", status_code=status.HTTP_200_OK, response_model=PasswordResetResponse)
 async def password_reset(
     passwords: PasswordResetModel,
     user: UserModel = Depends(get_current_user),
@@ -461,8 +456,5 @@ async def password_reset(
     if user and verify_password(old_password, user.password_hash):
         passwd_hash = generate_passwd_hash(new_password)
         await user_service.update_user(user, {"password_hash": passwd_hash}, session)
-        return JSONResponse(
-            content={"message": "Password reset Successfully"},
-            status_code=status.HTTP_200_OK,
-        )
+        return PasswordResetResponse(message="Password reset Successfully")
     raise raise_invalid_credentials_exception()

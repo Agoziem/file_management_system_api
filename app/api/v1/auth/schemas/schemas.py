@@ -1,14 +1,12 @@
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Union
 from enum import Enum
-from pydantic import UUID4, BaseModel, Field, EmailStr, field_serializer, HttpUrl
+from pydantic import UUID4, BaseModel, ConfigDict, Field, EmailStr, field_serializer, HttpUrl
 import uuid
 from datetime import datetime
 
+from app.api.v1.auth.models import Role
 
-class Role(str, Enum):
-    ADMIN = "admin"
-    CUSTOMER = "customer"
 
 
 class UserCreateModel(BaseModel):
@@ -54,7 +52,7 @@ class UserResponseModel(BaseModel):
     phone: Optional[str] = None
     avatar: Optional[str] = None
     gender: Optional[str] = None
-    role: Role = Role.CUSTOMER
+    role: Role = Role.STANDARD_USER
 
     @field_serializer("id")
     def serialize_uuid(self, value: uuid.UUID) -> str:
@@ -77,7 +75,7 @@ class UserModel(BaseModel):
     avatar: Optional[str] = None
     bio: Optional[str] = None
     gender: Optional[str] = None
-    role: Role = Role.CUSTOMER
+    role: Role = Role.STANDARD_USER
     is_verified: bool = False
     two_factor_enabled: Optional[bool] = False
     is_oauth: bool = False
@@ -196,3 +194,53 @@ class ActivityResponse(ActivityBase):
     class Config:
         from_attributes = True
 
+
+# ---------------------------------------------------
+# response schemas
+# ---------------------------------------------------
+class UserInfo(BaseModel):
+    id: uuid.UUID
+    email: EmailStr
+    profile_completed: bool
+
+    @field_serializer("id")
+    def serialize_uuid(self, value: uuid.UUID) -> str:
+        return str(value)
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class BaseResponse(BaseModel):
+    message: str
+
+class VerificationResponse(BaseResponse):
+    verification_needed: bool
+
+class TwoFactorResponse(BaseResponse):
+    two_factor_required: bool
+    user: dict[str, str]
+
+class LoginSuccessResponse(BaseResponse):
+    access_token: str
+    refresh_token: str
+    user: UserInfo
+
+class TokenResponse(BaseModel):
+    access_token: str
+
+class CreateUserResponse(BaseResponse):
+    user: UserModel
+
+class LogoutResponse(BaseResponse):
+    pass
+
+class PasswordResetResponse(BaseResponse):
+    pass
+
+class UserUpdateResponse(BaseResponse):
+    user: UserUpdateModel
+
+class UserRoleChangeResponse(BaseResponse):
+    user: UserUpdateModel
+
+# Union type for login responses
+LoginResponse = Union[VerificationResponse, TwoFactorResponse, LoginSuccessResponse]
