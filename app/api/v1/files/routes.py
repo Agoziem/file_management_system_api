@@ -9,15 +9,16 @@ from app.api.v1.auth.models import User
 from app.core.database import async_get_db
 from .models import FileType
 from .schemas import (
-    FileResponse, FileUpdate, FileList, StorageResponse,
+    FileResponse, FileUpdate, FileList, StorageCreate, StorageResponse,
     FileUploadResponse, FileDeleteResponse, MultipleFileUploadResponse, StorageUpdate,
     FileTypeDistribution, StorageUsageTrend, RecentActivityResponse, 
-    LargeFilesResponse, FileAnalyticsDashboard
+    LargeFilesResponse, FileAnalyticsDashboard, FileActivityCreate, FileActivityResponse
 )
 from .services import (
-    get_file, get_files, update_file, delete_file, get_user_storage, update_storage,
+    create_storage, get_file, get_files, update_file, delete_file, get_user_storage, update_storage,
     upload_and_create_file, determine_file_type, get_file_type_distribution,
-    get_storage_usage_trends, get_recent_activity, get_large_files
+    get_storage_usage_trends, get_recent_activity, get_large_files,
+    create_file_activity, delete_file_activity, get_user_file_activities
 )
 
 file_router = APIRouter()
@@ -166,14 +167,33 @@ async def list_files(
 async def get_storage_info(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(async_get_db),
+    create_if_missing: bool = Query(True, description="Create storage info if missing")
 ):
     """
     Get storage information for the current user.
     """
     storage = await get_user_storage(db, current_user.id)
     if not storage:
-        raise HTTPException(status_code=404, detail="Storage information not found")
+        if create_if_missing:
+            storage_data = StorageCreate(
+                total_space=10737418240,  # Default 10GB
+                used_space=0,
+                user_id=current_user.id,
+            )
+            storage = await create_storage(db, storage_data)
+            if not storage:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Error creating storage information"
+                )
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail="Storage information not found"
+            )
+
     return storage
+
 
 
 @file_router.put('/storage/extend', response_model=StorageResponse)
@@ -272,3 +292,67 @@ async def get_analytics_dashboard(
         "recent_activity": recent_activity,
         "large_files": large_files
     }
+
+
+# =====================================
+# 🔹 File Activity Routes
+# =====================================
+
+@file_router.post("/activities", response_model=FileActivityResponse)
+async def create_activity(
+    activity_data: FileActivityCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(async_get_db),
+):
+    """
+    Create a new file activity record.
+    This can be used by the frontend to manually track specific file actions.
+    """
+    # Verify that the file belongs to the current user
+    file = await get_file(db, activity_data.file_id, current_user.id)
+    if not file:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    try:
+        activity = await create_file_activity(db, activity_data)
+        return FileActivityResponse(
+            id=activity.id,
+            file_id=activity.file_id,
+            action=activity.action,
+            timestamp=activity.timestamp
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@file_router.delete("/activities/{activity_id}")
+async def delete_activity(
+    activity_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(async_get_db),
+):
+    """
+    Delete a file activity record.
+    Only the owner of the associated file can delete the activity.
+    """
+    success = await delete_file_activity(db, activity_id, current_user.id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Activity not found or access denied")
+    
+    return {"status": "deleted", "message": "Activity deleted successfully"}
+
+
+@file_router.get("/activities", response_model=RecentActivityResponse)
+async def get_activities(
+    limit: int = Query(50, ge=1, le=100, description="Number of activities to retrieve"),
+    skip: int = Query(0, ge=0, description="Number of activities to skip"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(async_get_db),
+):
+    """
+    Get file activities for the current user with pagination.
+    Returns activities with file details sorted by most recent first.
+    """
+    activities = await get_user_file_activities(db, current_user.id, limit=limit, skip=skip)
+    
+    return RecentActivityResponse(recent_activity=activities)

@@ -29,6 +29,13 @@ class FileType(str, Enum):
     AUDIO = "audio"
     OTHER = "other"
 
+class FileActivityAction(str, Enum):
+    UPLOADED = "uploaded"
+    MODIFIED = "modified"
+    ARCHIVED = "archived"
+    DELETED = "deleted"
+    SHARED = "shared"
+
 class File(Base):
     __tablename__ = "files"
 
@@ -43,8 +50,20 @@ class File(Base):
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="files")
+    activities: Mapped[List["FileActivity"]] = relationship("FileActivity", back_populates="file", cascade="all, delete-orphan")
 
     __table_args__ = (UniqueConstraint("user_id", "file_name", name="unique_user_file_name"),)
+
+class FileActivity(Base):
+    __tablename__ = "file_activities"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    file_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("files.id"), nullable=False)
+    action: Mapped[FileActivityAction] = mapped_column(String, nullable=False)  # e.g., "uploaded", "modified", etc.
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    file: Mapped["File"] = relationship("File", back_populates="activities")
 
 
 class Storage(Base):

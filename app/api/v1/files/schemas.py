@@ -3,9 +3,7 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 from pydantic import BaseModel, Field, HttpUrl
-
-from app.api.v1.files.models import FileType
-
+from app.api.v1.files.models import FileType, FileActivityAction
 
 class FileBase(BaseModel):
     file_name: str
@@ -109,19 +107,69 @@ class StorageUsageTrend(BaseModel):
             }
         }
 
+# File Activity Schemas
+class FileActivityCreate(BaseModel):
+    file_id: UUID
+    action: FileActivityAction
 
-class FileActivity(BaseModel):
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "file_id": "123e4567-e89b-12d3-a456-426614174000",
+                "action": "uploaded"
+            }
+        }
+
+
+class FileActivityResponse(BaseModel):
     id: UUID
+    file_id: UUID
+    action: FileActivityAction
+    timestamp: datetime
+
+    class Config:
+        from_attributes = True
+        json_schema_extra = {
+            "example": {
+                "id": "123e4567-e89b-12d3-a456-426614174000",
+                "file_id": "456e7890-e89b-12d3-a456-426614174001",
+                "action": "uploaded",
+                "timestamp": "2025-09-10T10:00:00Z"
+            }
+        }
+
+
+class FileActivityWithFileDetails(BaseModel):
+    id: UUID
+    file_id: UUID
     file_name: str
     file_type: FileType
     file_size: int
-    updated_at: datetime
-    created_at: datetime
-    action: str
+    action: FileActivityAction
+    timestamp: datetime
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": "123e4567-e89b-12d3-a456-426614174000",
+                "file_id": "456e7890-e89b-12d3-a456-426614174001",
+                "file_name": "document.pdf",
+                "file_type": "document",
+                "file_size": 1048576,
+                "action": "uploaded",
+                "timestamp": "2025-09-10T10:00:00Z"
+            }
+        }
+
+
+# Legacy schema for backward compatibility - will be replaced by FileActivityWithFileDetails
+class FileActivity(FileActivityWithFileDetails):
+    updated_at: datetime = Field(alias="timestamp")
+    created_at: datetime = Field(alias="timestamp")
 
 
 class RecentActivityResponse(BaseModel):
-    recent_activity: List[dict]
+    recent_activity: List[FileActivityWithFileDetails]
 
     class Config:
         json_schema_extra = {
@@ -129,12 +177,12 @@ class RecentActivityResponse(BaseModel):
                 "recent_activity": [
                     {
                         "id": "123e4567-e89b-12d3-a456-426614174000",
+                        "file_id": "456e7890-e89b-12d3-a456-426614174001",
                         "file_name": "document.pdf",
                         "file_type": "document",
                         "file_size": 1048576,
-                        "updated_at": "2025-08-19T10:00:00Z",
-                        "created_at": "2025-08-19T10:00:00Z",
-                        "action": "uploaded"
+                        "action": "uploaded",
+                        "timestamp": "2025-09-10T10:00:00Z"
                     }
                 ]
             }
@@ -151,7 +199,7 @@ class LargeFile(BaseModel):
 
 
 class LargeFilesResponse(BaseModel):
-    large_files: List[dict]
+    large_files: List[LargeFile]
 
     class Config:
         json_schema_extra = {
@@ -173,8 +221,8 @@ class LargeFilesResponse(BaseModel):
 class FileAnalyticsDashboard(BaseModel):
     type_distribution: dict
     storage_trends: dict
-    recent_activity: List[dict]
-    large_files: List[dict]
+    recent_activity: List[FileActivityWithFileDetails]
+    large_files: List[LargeFile]
 
     class Config:
         json_schema_extra = {

@@ -7,8 +7,8 @@ from sqlalchemy import select, func, extract, desc
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.v1.files.models import File, FileType, Storage
-from app.api.v1.files.schemas import FileCreate, FileUpdate, StorageCreate, StorageUpdate
+from app.api.v1.files.models import File, FileType, Storage, FileActivity, FileActivityAction
+from app.api.v1.files.schemas import FileCreate, FileUpdate, StorageCreate, StorageUpdate, FileActivityCreate, FileActivityWithFileDetails
 from app.api.v1.files.utils import upload_or_replace_file, delete_file as delete_s3_file
 
 MB = 1024 * 1024  # 1 MB in bytes
@@ -46,6 +46,14 @@ async def create_file(db: AsyncSession, file_data: FileCreate, user_id: UUID) ->
         # Update storage usage
         storage.used_space += file_data.file_size
         db.add(storage)
+        await db.commit()
+        
+        # Create activity record
+        activity = FileActivity(
+            file_id=db_file.id,
+            action=FileActivityAction.UPLOADED
+        )
+        db.add(activity)
         await db.commit()
         
         return db_file
@@ -113,6 +121,15 @@ async def update_file(
         db.add(file)
         await db.commit()
         await db.refresh(file)
+        
+        # Create activity record for modification
+        activity = FileActivity(
+            file_id=file.id,
+            action=FileActivityAction.MODIFIED
+        )
+        db.add(activity)
+        await db.commit()
+        
         return file
     except IntegrityError:
         await db.rollback()
@@ -138,13 +155,21 @@ async def delete_file(db: AsyncSession, file_id: UUID, user_id: UUID) -> bool:
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete file from storage")
     
+    # Create activity record for deletion (before deleting the file)
+    activity = FileActivity(
+        file_id=file.id,
+        action=FileActivityAction.DELETED
+    )
+    db.add(activity)
+    await db.commit()
+    
     # Get storage to update used space
     storage = await get_user_storage(db, user_id)
     if storage:
         storage.used_space = max(0, storage.used_space - file.file_size)
         db.add(storage)
     
-    # Delete from database
+    # Delete from database (activities will be cascade deleted)
     await db.delete(file)
     await db.commit()
     
@@ -332,37 +357,12 @@ async def get_storage_usage_trends(
 
 async def get_recent_activity(
     db: AsyncSession, user_id: UUID, limit: int = 10
-) -> List[Dict[str, Any]]:
+) -> List[FileActivityWithFileDetails]:
     """
     Get recent file activity for a user.
-    Returns a list of recently uploaded or updated files.
+    Now uses the proper FileActivity tracking system.
     """
-    # Get recently updated files
-    query = (
-        select(File)
-        .where(File.user_id == user_id)
-        .order_by(desc(File.updated_at))
-        .limit(limit)
-    )
-    
-    result = await db.execute(query)
-    files = result.scalars().all()
-    
-    # Format the results
-    activity = []
-    for file in files:
-        activity.append({
-            "id": file.id,
-            "file_name": file.file_name,
-            "file_type": file.file_type,
-            "file_size": file.file_size,
-            "updated_at": file.updated_at,
-            "created_at": file.created_at,
-            # If updated_at and created_at are the same, the file was just uploaded
-            "action": "uploaded" if file.updated_at == file.created_at else "updated"
-        })
-    
-    return activity
+    return await get_recent_activity_with_details(db, user_id, limit)
 
 
 async def get_large_files(
@@ -398,3 +398,97 @@ async def get_large_files(
         })
     
     return large_files
+
+
+# =====================================
+# 🔹 File Activity Service Functions
+# =====================================
+
+async def create_file_activity(
+    db: AsyncSession, activity_data: FileActivityCreate
+) -> FileActivity:
+    """Create a new file activity record."""
+    db_activity = FileActivity(
+        file_id=activity_data.file_id,
+        action=activity_data.action
+    )
+    
+    try:
+        db.add(db_activity)
+        await db.commit()
+        await db.refresh(db_activity)
+        return db_activity
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create activity: {str(e)}")
+
+
+async def delete_file_activity(
+    db: AsyncSession, activity_id: UUID, user_id: UUID
+) -> bool:
+    """Delete a file activity record. Only allows deletion if the user owns the associated file."""
+    # First check if the activity exists and if the user owns the associated file
+    query = (
+        select(FileActivity)
+        .join(File, FileActivity.file_id == File.id)
+        .where(FileActivity.id == activity_id, File.user_id == user_id)
+    )
+    
+    result = await db.execute(query)
+    activity = result.scalar_one_or_none()
+    
+    if not activity:
+        return False
+    
+    try:
+        await db.delete(activity)
+        await db.commit()
+        return True
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete activity: {str(e)}")
+
+
+async def get_user_file_activities(
+    db: AsyncSession, 
+    user_id: UUID, 
+    limit: int = 50, 
+    skip: int = 0
+) -> List[FileActivityWithFileDetails]:
+    """Get file activities for a user with file details."""
+    query = (
+        select(FileActivity, File)
+        .join(File, FileActivity.file_id == File.id)
+        .where(File.user_id == user_id)
+        .order_by(desc(FileActivity.timestamp))
+        .offset(skip)
+        .limit(limit)
+    )
+    
+    result = await db.execute(query)
+    activities_with_files = result.all()
+    
+    # Format the results as Pydantic models
+    activities = []
+    for activity, file in activities_with_files:
+        activities.append(FileActivityWithFileDetails(
+            id=activity.id,
+            file_id=activity.file_id,
+            file_name=file.file_name,
+            file_type=file.file_type,
+            file_size=file.file_size,
+            action=activity.action,
+            timestamp=activity.timestamp
+        ))
+    
+    return activities
+
+
+async def get_recent_activity_with_details(
+    db: AsyncSession, user_id: UUID, limit: int = 10
+) -> List[FileActivityWithFileDetails]:
+    """
+    Get recent file activity for a user with proper activity tracking.
+    This replaces the old get_recent_activity function to use the FileActivity model.
+    """
+    return await get_user_file_activities(db, user_id, limit=limit, skip=0)
