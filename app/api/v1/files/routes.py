@@ -26,7 +26,8 @@ file_router = APIRouter()
 @file_router.post("/upload", response_model=FileUploadResponse)
 async def upload_file(
     file: UploadFile = File(...),
-    replace: bool = Form(False),
+    replace: bool = Form(True),
+    key: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(async_get_db),
 ):
@@ -43,7 +44,7 @@ async def upload_file(
 
         # Upload file and create record
         db_file = await upload_and_create_file(
-            db, file, current_user.id, file_type, replace
+            db, file, current_user.id, file_type, replace, key
         )
         
         return FileUploadResponse(
@@ -58,7 +59,8 @@ async def upload_file(
 @file_router.post("/upload_multiple", response_model=MultipleFileUploadResponse)
 async def upload_multiple(
     files: list[UploadFile] = File(...),
-    replace: bool = Form(False),
+    replace: bool = Form(True),
+    keys: list[str] = Form(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(async_get_db),
 ):
@@ -73,8 +75,8 @@ async def upload_multiple(
     try:
         file_ids = []
         urls = []
-        
-        for file in files:
+
+        for file, key in zip(files, keys):
 
             # Validate file
             if not file.filename:
@@ -85,7 +87,7 @@ async def upload_multiple(
             
             # Upload file and create record
             db_file = await upload_and_create_file(
-                db, file, current_user.id, file_type, replace
+                db, file, current_user.id, file_type, replace, key
             )
             
             urls.append(db_file.file_url)

@@ -27,7 +27,7 @@ async def upload_or_replace_file(file: UploadFile, key: str, replace: bool = Tru
                 await s3.delete_object(Bucket=AWS_BUCKET_NAME, Key=key)
             except ClientError:
                 pass  # Not found or already deleted
-
+        print("Uploading file to S3...")
         await s3.upload_fileobj(file.file, AWS_BUCKET_NAME, key)
         return f"https://{AWS_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{key}"
 

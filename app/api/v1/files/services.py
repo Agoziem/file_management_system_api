@@ -16,7 +16,7 @@ DEFAULT_STORAGE_LIMIT = 100 * MB  # 100 MB default storage limit
 
 
 async def create_file(db: AsyncSession, file_data: FileCreate, user_id: UUID) -> File:
-    """Create a new file record in database"""
+    """Create a new file record in database and upload to S3"""
     
     # Check if user has enough storage space
     storage = await get_user_storage(db, user_id)
@@ -39,6 +39,9 @@ async def create_file(db: AsyncSession, file_data: FileCreate, user_id: UUID) ->
     )
     
     try:
+        file_with_the_same_name = await get_file_by_name(db, user_id, file_data.file_name)
+        if file_with_the_same_name:
+            await delete_file(db, file_with_the_same_name.id, user_id, remove_from_s3=False)
         db.add(db_file)
         await db.commit()
         await db.refresh(db_file)
@@ -136,7 +139,7 @@ async def update_file(
         raise HTTPException(status_code=409, detail="File with this name already exists")
 
 
-async def delete_file(db: AsyncSession, file_id: UUID, user_id: UUID) -> bool:
+async def delete_file(db: AsyncSession, file_id: UUID, user_id: UUID, remove_from_s3: bool = True) -> bool:
     """Delete a file from database and storage"""
     query = select(File).where(File.id == file_id, File.user_id == user_id)
     result = await db.execute(query)
@@ -151,9 +154,10 @@ async def delete_file(db: AsyncSession, file_id: UUID, user_id: UUID) -> bool:
     key = parts[-1]
     
     # Delete from S3
-    success = await delete_s3_file(key)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to delete file from storage")
+    if remove_from_s3:
+        success = await delete_s3_file(key)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete file from storage")
     
     # Create activity record for deletion (before deleting the file)
     activity = FileActivity(
@@ -236,15 +240,16 @@ async def upload_and_create_file(
     file: UploadFile,
     user_id: UUID,
     file_type: FileType,
-    replace: bool = False
+    replace: bool = True,
+    key: Optional[str] = None
 ) -> File:
     """Upload file to S3 and create database record"""
     # Generate a unique key for the file
-    key = f"{user_id}/{uuid.uuid4()}/{file.filename}"
+    key = key or f"{user_id}/{uuid.uuid4()}_{file.filename}"
     
     # Upload to S3
     file_url = await upload_or_replace_file(file, key, replace)
-    
+
     # Determine file size - file.size doesn't always work, so read the file
     file.file.seek(0, 2)  # Move to end of file
     file_size = file.file.tell()  # Get current position (size)
