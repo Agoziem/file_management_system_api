@@ -106,7 +106,7 @@ async def update_notification(
     result = await db.execute(stmt)
     users = result.scalars().all()
 
-    users_fcm_tokens = [user.fcm_token for user in users if user.fcm_token]
+    users_fcm_tokens = [user.fcmtoken for user in users if user.fcmtoken]
     message = {
         "tokens": users_fcm_tokens,
         "title": updated_notification.title or "New Notification",
@@ -168,7 +168,7 @@ async def create_notification(
         session=db
     )
 
-    users_fcm_tokens = [user.fcm_token for user in users if user.fcm_token]
+    users_fcm_tokens = [user.fcmtoken for user in users if user.fcmtoken]
     message = {
         "tokens": users_fcm_tokens,
         "title": saved_notification.title,
