@@ -5,8 +5,9 @@ from app.api.v1.auth.errors import raise_user_not_found_exception
 from app.api.v1.auth.models import User
 from app.api.v1.auth.services.token_service import TokenService
 from app.core.database import async_get_db
-from app.core.mail import EmailRawHTMLContent, EmailRecipient, send_html_email
+from app.core.mail import EmailRawHTMLContent, EmailRecipient, send_resend_email
 from app.core.templates import templates
+from app.core.config import settings
 
 from ..dependencies import (
     RoleChecker,
@@ -116,17 +117,16 @@ async def resend_2fa_code(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
     # Prepare email content
-    # recipients = [EmailRecipient(
-    #     email=token_obj.email, name=token_obj.email.split('@')[0])]
-    # content = EmailRawHTMLContent(
-    #     subject="2FA Code",
-    #     html_content=templates.get_template("auth/2fa_code.html").render(
-    #             token=token_obj.token,
-    #     ),
-    #     sender_name=settings.SENDER_NAME,
-    # )
-    # background_tasks.add_task(send_html_email, recipients, content)
-    print("2FA code (for testing purposes):", token_obj.token)
+    recipients = [EmailRecipient(
+        email=token_obj.email, name=token_obj.email.split('@')[0])]
+    content = EmailRawHTMLContent(
+        subject="2FA Code",
+        html_content=templates.get_template("auth/2fa_code.html").render(
+                token=token_obj.token,
+        ),
+        sender_name=settings.SENDER_NAME,
+    )
+    background_tasks.add_task(send_resend_email, recipients, content)
     return BaseResponse(message="2FA code resent to your email")
 
 # --------------------------------------------------------------------

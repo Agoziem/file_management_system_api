@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.v1.auth.schemas.token_schemas import TokenVerification
 from app.api.v1.auth.services.token_service import TokenService
 from app.core.database import async_get_db
-from app.core.mail import EmailRawHTMLContent, EmailRecipient, send_html_email
+from app.core.mail import EmailRawHTMLContent, EmailRecipient, send_resend_email
 from app.core.redis import add_jti_to_blocklist
 from app.core.templates import templates
 
@@ -78,7 +78,7 @@ async def send_mail(emails: EmailModel,
         html_content=data.html_content,
         sender_name=settings.SENDER_NAME,
     )
-    background_tasks.add_task(send_html_email, recipients, content)
+    background_tasks.add_task(send_resend_email, recipients, content)
 
     return BaseResponse(message="Email sent successfully")
 
@@ -112,19 +112,19 @@ async def create_user_Account(
     )
 
     # Prepare email content
-    # recipients = [EmailRecipient(
-    #     email=token_data.email,
-    #     name=token_data.email.split('@')[0])
-    #     ]
-    # content = EmailRawHTMLContent(
-    #     subject="Verify Your email",
-    #     html_content=templates.get_template("auth/email_verfication.html").render(
-    #         token=token_data.token,
-    #         user=new_user,
-    #     ),
-    #     sender_name=settings.SENDER_NAME,
-    # )
-    # background_tasks.add_task(send_html_email, recipients, content)
+    recipients = [EmailRecipient(
+        email=token_data.email,
+        name=token_data.email.split('@')[0])
+        ]
+    content = EmailRawHTMLContent(
+        subject="Verify Your email",
+        html_content=templates.get_template("auth/email_verfication.html").render(
+            token=token_data.token,
+            user=new_user,
+        ),
+        sender_name=settings.SENDER_NAME,
+    )
+    background_tasks.add_task(send_resend_email, recipients, content)
     print(f"Verification token: {token_data.token}")
 
     return CreateUserResponse(
@@ -160,20 +160,19 @@ async def resend_verification_email(
         raise raise_user_not_found_exception()
 
     # Prepare email content
-    # recipients = [EmailRecipient(
-    #     email=token_data.email,
-    #     name=user_data.first_name or token_data.email.split('@')[0]
-    #     )]
-    # content = EmailRawHTMLContent(
-    #     subject="Verify Your email",
-    #     html_content=templates.get_template("auth/email_verfication.html").render(
-    #         token=token_data.token,
-    #         user=user_data,
-    #     ),
-    #     sender_name=settings.SENDER_NAME,
-    # )
-    # background_tasks.add_task(send_html_email, recipients, content)
-    print(f"Verification token: {token_data.token}")
+    recipients = [EmailRecipient(
+        email=token_data.email,
+        name=user_data.first_name or token_data.email.split('@')[0]
+        )]
+    content = EmailRawHTMLContent(
+        subject="Verify Your email",
+        html_content=templates.get_template("auth/email_verfication.html").render(
+            token=token_data.token,
+            user=user_data,
+        ),
+        sender_name=settings.SENDER_NAME,
+    )
+    background_tasks.add_task(send_resend_email, recipients, content)
     return BaseResponse(message="Verification email sent successfully")
 
 
@@ -204,20 +203,19 @@ async def login_users(
             )
 
             # Prepare email content
-            # recipients = [EmailRecipient(
-            #     email=token_data.email,
-            #     name=user.first_name or token_data.email.split('@')[0]
-            #                                                         )]
-            # content = EmailRawHTMLContent(
-            #     subject="Verify Your email",
-            #     html_content=templates.get_template("auth/email_verfication.html").render(
-            #         token=token_data.token,
-            #         user=user,
-            #     ),
-            #     sender_name="Mimipoint",
-            # )
-            # background_tasks.add_task(send_html_email, recipients, content)
-            print(f"Verification token: {token_data.token}")
+            recipients = [EmailRecipient(
+                email=token_data.email,
+                name=user.first_name or token_data.email.split('@')[0]
+                                                                    )]
+            content = EmailRawHTMLContent(
+                subject="Verify Your email",
+                html_content=templates.get_template("auth/email_verfication.html").render(
+                    token=token_data.token,
+                    user=user,
+                ),
+                sender_name="Mimipoint",
+            )
+            background_tasks.add_task(send_resend_email, recipients, content)
 
             return VerificationResponse(
                 message="Verification email resent successfully",
@@ -240,9 +238,9 @@ async def login_users(
                 html_content=templates.get_template("auth/2fa_code.html").render(
                     token=two_factor_token.token,
                 ),
-                sender_name="Mimipoint",
+                sender_name="File Management App",
             )
-            background_tasks.add_task(send_html_email, recipients, content)
+            background_tasks.add_task(send_resend_email, recipients, content)
 
             return TwoFactorResponse(
                 message="2FA code sent to your email",
@@ -359,19 +357,18 @@ async def password_reset_request(
     link = f"{settings.DOMAIN}/reset-password?token={token_data.token}"
     
     # Prepare email content
-    # recipients = [EmailRecipient(
-    #     email=token_data.email,
-    #     name=token_data.email.split('@')[0]
-    #                                     )]
-    # content = EmailRawHTMLContent(
-    #     subject="Reset Your Password",
-    #     html_content=templates.get_template("auth/password_reset.html").render(
-    #         reset_url=link,
-    #     ),
-    #     sender_name=settings.SENDER_NAME,
-    # )
-    # background_tasks.add_task(send_html_email, recipients, content)
-    print(f"Password reset link: {link}")
+    recipients = [EmailRecipient(
+        email=token_data.email,
+        name=token_data.email.split('@')[0]
+                                        )]
+    content = EmailRawHTMLContent(
+        subject="Reset Your Password",
+        html_content=templates.get_template("auth/password_reset.html").render(
+            reset_url=link,
+        ),
+        sender_name=settings.SENDER_NAME,
+    )
+    background_tasks.add_task(send_resend_email, recipients, content)
 
     return BaseResponse(
         message="Please check your email for instructions to reset your password"

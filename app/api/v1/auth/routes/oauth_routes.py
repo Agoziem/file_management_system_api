@@ -25,7 +25,7 @@ from starlette.requests import Request
 import uuid
 from uuid import UUID
 from fastapi.background import BackgroundTasks
-from app.core.mail import EmailRawHTMLContent, EmailRecipient, send_html_email
+from app.core.mail import EmailRawHTMLContent, EmailRecipient, send_resend_email
 from app.core.templates import templates
 
 oauth_router = APIRouter()
@@ -144,19 +144,17 @@ async def create_oauth_token(
         )
 
         # Prepare email content
-        # recipients = [
-        #     EmailRecipient(
-        #         email=two_factor_token.email, name=two_factor_token.email.split('@')[0]
-        #     )
-        # ]
-        # content = EmailRawHTMLContent(
-        #     subject="2FA Code",
-        #     html_content=html,
-        #     sender_name=settings.SENDER_NAME,
-        # )
-        # background_tasks.add_task(send_html_email, recipients, content)
-        print("2FA code (for testing purposes):", two_factor_token.token)
-
+        recipients = [
+            EmailRecipient(
+                email=two_factor_token.email, name=two_factor_token.email.split('@')[0]
+            )
+        ]
+        content = EmailRawHTMLContent(
+            subject="2FA Code",
+            html_content=html,
+            sender_name=settings.SENDER_NAME,
+        )
+        background_tasks.add_task(send_resend_email, recipients, content)
         return TwoFactorResponse(
             message="2FA code sent to your email",
             two_factor_required=True,
