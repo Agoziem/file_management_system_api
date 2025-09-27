@@ -25,6 +25,7 @@ dependencies = [
     "python-dotenv>=1.1.0",
     "python-multipart>=0.0.20",
     "redis>=6.1.0",
+    "resend>=2.15.0",
     "sqlalchemy>=2.0.41",
     "uvicorn>=0.34.2",
     "websockets>=15.0.1",

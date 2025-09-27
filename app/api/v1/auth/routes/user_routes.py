@@ -25,8 +25,9 @@ from typing import List
 user_router = APIRouter()
 user_service = UserService()
 activity_service = ActivityService()
-role_checker = RoleChecker(["super_admin","admin", "business_user", "standard_user"])
-admin_checker = RoleChecker(["admin", "super_admin"])
+role_checker = RoleChecker(
+    ["super_admin", "admin", "business_user", "standard_user"])
+admin_checker = RoleChecker(["admin", "super_admin", "business_user", "standard_user"])
 
 # --------------------------------------------------------------------
 # Fetch all users
@@ -35,7 +36,8 @@ admin_checker = RoleChecker(["admin", "super_admin"])
 
 @user_router.get("/all", response_model=List[UserResponseModel])
 async def fetch_users(
-    role: str = Query("All", enum=["All","super_admin","admin", "business_user", "standard_user"]),
+    role: str = Query(
+        "All", enum=["All", "super_admin", "admin", "business_user", "standard_user"]),
     limit: int = Query(10, gt=0),
     offset: int = Query(0, ge=0),
     _: bool = Depends(admin_checker),
@@ -66,16 +68,11 @@ async def update_user(
     user: UserModel = Depends(get_current_user),
     session: AsyncSession = Depends(async_get_db)
 ):
-    # Check if the email already exists
-    user_exists = await user_service.user_exists(user.email, session)
-
-    if user_exists and user_data.email != user.email:
-        raise HTTPException(
-            detail="Email is already in use by another account.",
-            status_code=status.HTTP_400_BAD_REQUEST
-        )
-
-    updated_user = await user_service.update_user(user, user_data.model_dump(), session)
+    updated_user = await user_service.update_user(
+        user,
+        user_data.model_dump(exclude_unset=True),
+        session
+    )
 
     return UserUpdateResponse(
         message="User information updated successfully",

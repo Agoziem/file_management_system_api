@@ -1480,6 +1480,7 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "python-multipart" },
     { name = "redis" },
+    { name = "resend" },
     { name = "sqlalchemy" },
     { name = "uvicorn" },
     { name = "websockets" },
@@ -1506,6 +1507,7 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.1.0" },
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "redis", specifier = ">=6.1.0" },
+    { name = "resend", specifier = ">=2.15.0" },
     { name = "sqlalchemy", specifier = ">=2.0.41" },
     { name = "uvicorn", specifier = ">=0.34.2" },
     { name = "websockets", specifier = ">=15.0.1" },
@@ -1885,6 +1887,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e1/0a/929373653770d8a0d7ea76c37de6e41f11eb07559b103b1c02cafb3f7cf8/requests-2.32.4.tar.gz", hash = "sha256:27d0316682c8a29834d3264820024b62a36942083d52caf2f14c0591336d3422", size = 135258, upload-time = "2025-06-09T16:43:07.34Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7c/e4/56027c4a6b4ae70ca9de302488c5ca95ad4a39e190093d6c1a8ace08341b/requests-2.32.4-py3-none-any.whl", hash = "sha256:27babd3cda2a6d50b30443204ee89830707d396671944c998b5975b031ac2b2c", size = 64847, upload-time = "2025-06-09T16:43:05.728Z" },
+]
+
+[[package]]
+name = "resend"
+version = "2.15.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b7/f3/61f145169756121e5e0a109c21e35796c8542acdd28f96bd6d62f86565ec/resend-2.15.0.tar.gz", hash = "sha256:6c34334f32022362b5e73d82db73d77433b2ed500c7083071cf4f727e2c23b48", size = 16737, upload-time = "2025-09-24T18:23:26.519Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/1b/0675ddfa36def79897251531bab6ed12135face07030d2eae66614d111d2/resend-2.15.0-py2.py3-none-any.whl", hash = "sha256:67917e5ca6a713f039e4136176071f9362eaf6aac7d6158fe25bed7c6353e7f7", size = 25194, upload-time = "2025-09-24T18:23:25.618Z" },
 ]
 
 [[package]]

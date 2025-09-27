@@ -52,6 +52,7 @@ class UserResponseModel(BaseModel):
     phone: Optional[str] = None
     avatar: Optional[str] = None
     gender: Optional[str] = None
+    fcmtoken: Optional[str] = None
     role: Role = Role.STANDARD_USER
 
     @field_serializer("id")
@@ -77,6 +78,7 @@ class UserModel(BaseModel):
     gender: Optional[str] = None
     role: Role = Role.STANDARD_USER
     is_verified: bool = False
+    fcmtoken: Optional[str] = None
     two_factor_enabled: Optional[bool] = False
     is_oauth: bool = False
     created_at: datetime
@@ -94,7 +96,7 @@ class UserModel(BaseModel):
 
 
 class UserUpdateModel(BaseModel):
-    first_name: str
+    first_name: Optional[str] = None
     last_name: Optional[str] = None
     email: Optional[EmailStr] = None  # Make email optional
     phone: Optional[str] = None
@@ -104,6 +106,8 @@ class UserUpdateModel(BaseModel):
     avatar: Optional[str] = None
     bio: Optional[str] = None
     gender: Optional[str] = None
+    fcmtoken: Optional[str] = None
+    profile_completed: Optional[bool] = False
 
     class Config:
         from_attributes = True

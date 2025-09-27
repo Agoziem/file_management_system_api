@@ -3,7 +3,7 @@ from fastapi import Depends
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import async_get_db
-from ..models import Activity, User
+from ..models import Activity, Role, User
 from ..schemas.schemas import GoogleUserCreateModel, UserCreateModel, UserModel
 from ..utils import generate_passwd_hash
 from typing import Optional, List
@@ -115,7 +115,7 @@ class UserService:
     async def change_user_role(
         self,
         user_id: UUID,
-        new_role: str,
+        new_role: Role,
         session: AsyncSession = Depends(async_get_db)
     ) -> Optional[User]:
         user = await self.get_user_by_id(user_id, session)
