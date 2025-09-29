@@ -8,12 +8,13 @@ from app.api.v1.auth.models import *
 from app.api.v1.files.models import *
 from app.api.v1.notifications.models import *
 from app.core.database import Base
+from app.core.config import settings
 
 # Load environment variables from .env
 load_dotenv()
 
 # Get the database URL from .env
-POSTGRES_URL = os.getenv("POSTGRES_URL", "your_default_postgres_url")
+POSTGRES_URL = settings.POSTGRES_URL
 
 # Ensure the POSTGRES_URL starts with "postgresql+asyncpg://"
 if not POSTGRES_URL.startswith("postgresql+asyncpg://"):

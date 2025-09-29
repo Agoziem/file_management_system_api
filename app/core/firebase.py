@@ -1,3 +1,4 @@
+import json
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import messaging
@@ -19,6 +20,8 @@ firebase_credentials = {
     "universe_domain": settings.FIREBASE_UNIVERSE_DOMAIN
 }
 
+firebase_credentials["private_key"] = firebase_credentials["private_key"].replace('\\\\n', '\\n')
+print(firebase_credentials["private_key"])
 cred = credentials.Certificate(firebase_credentials)
 firebase_admin.initialize_app(cred)
 
