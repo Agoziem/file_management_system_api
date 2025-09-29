@@ -11,13 +11,10 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 
-# Copy Alembic configuration file and scripts directory
-COPY alembic.ini ./
-COPY alembic ./alembic
+# Copy the rest of the application code
+COPY . .
 
-# Copy the rest of the application code and entrypoint script
-COPY app ./app
-COPY entrypoint.sh ./
+# Make the entrypoint script executable
 RUN chmod +x ./entrypoint.sh
 
 # Use the entrypoint script
