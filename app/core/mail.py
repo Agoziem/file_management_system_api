@@ -20,7 +20,7 @@ class EmailRawHTMLContent(BaseModel):
     subject: str
     html_content: str
     sender_name: str = "File Management App"
-    sender_email: EmailStr = "accounts@filemanagementapp.com"
+    sender_email: EmailStr = "accounts@innovationscybercafe.com"
 
 # -------------------------------------------------
 # Using Resend as alternative email service
@@ -33,7 +33,7 @@ def send_resend_email(
     content: EmailRawHTMLContent
 ):
     params: resend.Emails.SendParams = {
-        "from": "File management app <onboarding@resend.dev>",
+        "from": f"{content.sender_name} <{content.sender_email}>",
         "to": [r.email for r in recipients],
         "subject": content.subject,
         "html": content.html_content
