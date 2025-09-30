@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "password")
     POSTGRES_DB: str = os.getenv("POSTGRES_DB", "file_management_system_db")
 
+    # Neon specific settings
+    POSTGRES_SSLMODE: str = os.getenv("POSTGRES_SSLMODE", "require")
+    POSTGRES_CHANNELBINDING: str = os.getenv("POSTGRES_CHANNELBINDING", "require")
+
     # Redis Components
     REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
     REDIS_PORT: int = int(os.getenv("REDIS_PORT", 6379))
@@ -67,6 +71,7 @@ class Settings(BaseSettings):
         return (
             f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+            f"?sslmode={self.POSTGRES_SSLMODE}&channel_binding={self.POSTGRES_CHANNELBINDING}"
         )
 
     @computed_field
