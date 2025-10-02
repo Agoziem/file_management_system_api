@@ -13,18 +13,8 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = os.getenv("PROJECT_NAME", "File Management System")
     VERSION: str = "1.0.0"
     DOMAIN: str = "http://localhost:8000"
-
-    # Postgres Components
-    POSTGRES_HOST: str = os.getenv("POSTGRES_HOST", "localhost")
-    POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", 5432))
-    POSTGRES_USER: str = os.getenv("POSTGRES_USER", "postgres")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "password")
-    POSTGRES_DB: str = os.getenv("POSTGRES_DB", "file_management_system_db")
-
-    # Redis Components
-    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
-    REDIS_PORT: int = int(os.getenv("REDIS_PORT", 6379))
-    REDIS_PASSWORD: str | None = os.getenv("REDIS_PASSWORD")
+    POSTGRES_URL: str = os.getenv("POSTGRES_URL", "")
+    REDIS_URL: str = os.getenv("REDIS_URL", "")
 
     # Auth
     JWT_SECRET: str = os.getenv("JWT_SECRET", "secret")
@@ -59,22 +49,6 @@ class Settings(BaseSettings):
     FIREBASE_AUTH_PROVIDER_X509_CERT_URL: str = os.getenv("FIREBASE_AUTH_PROVIDER_X509_CERT_URL", "https://www.googleapis.com/oauth2/v1/certs")
     FIREBASE_CLIENT_X509_CERT_URL: str = os.getenv("FIREBASE_CLIENT_X509_CERT_URL", "your-client-cert-url")
     FIREBASE_UNIVERSE_DOMAIN: str = os.getenv("FIREBASE_UNIVERSE_DOMAIN", "googleapis.com")
-
-    # ✅ Computed fields for URLs
-    @computed_field
-    @property
-    def POSTGRES_URL(self) -> str:
-        return (
-            f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
-            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
-        )
-
-    @computed_field
-    @property
-    def REDIS_URL(self) -> str:
-        if self.REDIS_PASSWORD:
-            return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/0"
-        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/0"
 
     @computed_field
     @property
