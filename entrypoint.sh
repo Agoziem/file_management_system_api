@@ -4,7 +4,7 @@ set -e
 
 # Run Alembic migrations
 echo "Running Alembic migrations..."
-uv run alembic upgrade head
+alembic upgrade head
 
-# Start the application
-exec uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# Start the application  
+exec python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload

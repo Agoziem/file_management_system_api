@@ -1,9 +1,7 @@
 # Use the official astral/uv image as the base
 FROM ghcr.io/astral-sh/uv:python3.11-alpine
 
-# Install postgresql-client for pg_isready (this is necessary even with this base image)
-RUN apk add --no-cache postgresql-client
-
+# Set the working directory
 WORKDIR /app
 
 # Copy dependency files first to leverage Docker's build cache
@@ -16,6 +14,8 @@ COPY . .
 
 # Make the entrypoint script executable
 RUN chmod +x ./entrypoint.sh
+
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Use the entrypoint script
 ENTRYPOINT ["./entrypoint.sh"]
